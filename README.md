@@ -1,5 +1,7 @@
 # agent-skills
 
+[![skills.sh](https://skills.sh/b/CliffJr/agent-skills)](https://skills.sh/CliffJr/agent-skills)
+
 A personal collection of reusable skills, built and refined over time. Some are adapted from existing skills to better fit specific needs; others are original.
 
 ## Skills
@@ -10,15 +12,42 @@ Guides agents through integrating or debugging Digital Dubai SSO as an optional 
 
 Use it when the task mentions Digital Dubai SSO, DDA SSO, `demoidp.dubai.gov.ae`, `ssoredirect`, DDA token exchange, mobile callback handling, or "Sign in with Digital Dubai".
 
+Install only this skill:
+
+```bash
+npx skills add CliffJr/agent-skills --skill integrate-digital-dubai-sso
+```
+
+Install it globally for supported agents:
+
+```bash
+npx skills add CliffJr/agent-skills --skill integrate-digital-dubai-sso --global
+```
+
 ```md
 [$integrate-digital-dubai-sso](./integrate-digital-dubai-sso/SKILL.md)
 
 Integrate Digital Dubai SSO into this app using TDD. First inspect the existing auth flow, then ask only for missing details.
 ```
 
-## Install Locally
+## Install From GitHub
 
-Copy a skill folder into your local agent skills directory:
+The skills.sh CLI installs skills directly from public GitHub repositories:
+
+```bash
+npx skills add CliffJr/agent-skills --list
+npx skills add CliffJr/agent-skills --skill integrate-digital-dubai-sso
+```
+
+You can also install from the full GitHub URL:
+
+```bash
+npx skills add https://github.com/CliffJr/agent-skills --skill integrate-digital-dubai-sso
+```
+
+## Manual Local Install
+
+If you do not want to use `npx`, copy a skill folder into your local agent skills directory:
 
 ```bash
 mkdir -p ~/.agents/skills
@@ -34,3 +63,7 @@ Then call it from any project:
 ## Safety
 
 Do not commit OAuth client secrets, access tokens, ID tokens, captured auth logs, or real `.env` files. Skills in this repo should describe workflows and guardrails, not private project credentials.
+
+## License
+
+MIT. See [LICENSE](./LICENSE).

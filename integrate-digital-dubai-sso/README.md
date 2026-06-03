@@ -25,7 +25,23 @@ It is designed for:
 Add Digital Dubai SSO to this app. Use TDD, preserve existing sign-in providers, and ask only for missing provider or backend contract details.
 ```
 
+## Install
+
+```bash
+npx skills add CliffJr/agent-skills --skill integrate-digital-dubai-sso
+```
+
+For a global install:
+
+```bash
+npx skills add CliffJr/agent-skills --skill integrate-digital-dubai-sso --global
+```
+
 ## Files
 
 - `SKILL.md` - the reusable agent instructions.
 - `evals/evals.json` - sample prompts for testing whether the skill guides agents correctly.
+
+## License
+
+MIT. See the repository `LICENSE` file.
