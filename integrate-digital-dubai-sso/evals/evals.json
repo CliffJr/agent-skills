@@ -1,0 +1,29 @@
+{
+  "skill_name": "integrate-digital-dubai-sso",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "We have an Expo React Native app with UAE PASS and email sign-in already working. Add Digital Dubai SSO as an optional provider with a button above UAE PASS. DDA gave us authorize/token URLs, client ID/secret, scope openid, staging/prod ssoredirect URLs, and a backend endpoint for exchanging a DDA token into our app JWT. Use TDD and do not break the existing providers.",
+      "expected_output": "The agent should inspect existing auth code first, ask only for missing DDA/backend details, write one behavior test at a time, add a separate DDA flow, preserve existing providers, use WebView/deep-link handling when matching the app's native UX, update env/docs, and run focused plus project checks.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "Integrate Digital Dubai SSO into our Next.js web app. We have a server route available for callbacks and do not want the client secret in the browser. The provider uses demoidp.dubai.gov.ae and returns code/state to /ssoredirect. Please do this test-first.",
+      "expected_output": "The agent should choose a web/server callback design, keep the client secret server-side, test URL building/state/callback/token exchange through public interfaces, avoid native WebView assumptions, and document env requirements.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Digital Dubai login now returns code and state, and the token endpoint returns access_token plus id_token. But our backend exchange fails with 401 or 500. Please debug without guessing payload shapes.",
+      "expected_output": "The agent should separate DDA IdP success from backend exchange failure, inspect the backend contract/code/docs, add diagnostics for response status/message and non-sensitive id_token claims, test the request builder, and ask the backend owner for validation rules if the contract is absent.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "DDA sign-in behaves differently on iOS and Android. Sometimes the browser closes with no callback, and password reset links inside the login page fail. Make this robust and keep the same feel as our existing SSO provider.",
+      "expected_output": "The agent should inspect native schemes/intent filters/app links/WebView callbacks, prefer the existing in-app login pattern if it is the app's established UX, test HTTPS and native callback parsing, identify rebuild requirements, and avoid changing token exchange code for callback-delivery bugs.",
+      "files": []
+    }
+  ]
+}
