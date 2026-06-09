@@ -1,6 +1,6 @@
 ---
 name: integrate-digital-dubai-sso
-description: Integrate or debug Digital Dubai SSO (DDA OAuth/OIDC) as an optional sign-in/sign-out provider in web, iOS, Android, Expo/React Native, or similar apps. Use this skill whenever the user mentions Digital Dubai SSO, DDA SSO, demoidp.dubai.gov.ae, ssoredirect, exchange-dda-token, "Sign in with Digital Dubai", DDA token exchange, mobile callback issues, WebView vs browser SSO behavior, or asks to add/debug this provider. The skill guides a TDD-first, evidence-based implementation that reads existing auth flows first, asks only for missing facts, preserves UAE PASS/email sign-in, and avoids guessing provider/backend contracts.
+description: Integrate or debug Digital Dubai SSO (DDA OAuth/OIDC) as an optional sign-in/sign-out provider in web, iOS, Android, Expo/React Native, or similar apps. Use this skill whenever the user mentions Digital Dubai SSO, DDA SSO, demoidp.dubai.gov.ae, ssoredirect, "Sign in with Digital Dubai", DDA token exchange, backend token exchange, mobile callback issues, WebView vs browser SSO behavior, or asks to add/debug this provider. The skill guides a TDD-first, evidence-based implementation that reads existing auth flows first, asks only for missing facts, preserves existing sign-in providers, and avoids guessing provider/backend contracts.
 ---
 
 # Integrate Digital Dubai SSO
@@ -10,34 +10,40 @@ Use this skill to add or repair Digital Dubai SSO as a feature enhancement, not 
 ## Operating Rules
 
 - Start with code and docs, not guesses. Read the existing sign-in providers, callback handling, environment config, API client, token storage, logout cleanup, localization, icons, and platform deep-link settings.
-- Treat Digital Dubai SSO as separate from UAE PASS. Reuse generic patterns only when they are already shared cleanly; do not couple DDA code to UAE PASS request names or assumptions.
+- Treat Digital Dubai SSO as separate from any existing auth provider. Reuse generic patterns only when they are already shared cleanly; do not couple DDA code to another provider's request names or assumptions.
 - Use TDD vertically: one behavior test, see it fail, write the smallest implementation, see it pass, then continue.
-- Preserve existing email/UAE PASS sign-in and sign-out behavior unless the user explicitly asks to change it.
+- Preserve existing sign-in and sign-out behavior unless the user explicitly asks to change it.
 - Do not commit secrets, full tokens, or provider credentials. If sensitive token logging is needed, make it development-only and behind an explicit env flag.
 - When the provider/backend contract is missing or contradicted by logs, stop and ask for that contract. Do not try random payload shapes until one works.
 
-## Proven VRDS DDA Contract
+## Reusable DDA Mobile Evidence
 
-Use this contract for this repository unless current code/docs or the backend owner explicitly contradict it:
+Use this as evidence from a working Expo/React Native Digital Dubai SSO integration, not as a universal contract. Always confirm tenant-specific values, redirect URIs, callback bridge URLs, and backend exchange requirements from the app's docs, environment, DDA portal configuration, or backend owner.
 
-- QA/STG authorize URL: `https://demoidp.dubai.gov.ae/mga/sps/oauth/oauth20/authorize`
-- QA/STG token URL: `https://demoidp.dubai.gov.ae/mga/sps/oauth/oauth20/token`
-- QA/STG registered redirect URI: `https://pddfleetqa.dubai.gov.ae/ssoredirect`
-- QA/STG native bridge route: `vrds://ddasso-stg`
-- Scope: `openid`
-- DDA token exchange request: `POST` form-encoded body with `grant_type=authorization_code`, `client_id`, `client_secret`, `redirect_uri`, and `code`. In React Native, set `credentials: "omit"` on this fetch so Android does not attach the DDA WebView/user session cookie to `/token`.
-- Do not switch the DDA token exchange to HTTP Basic auth unless DDA provides updated docs for this tenant. In this integration, Basic auth caused a `200 text/html` response containing the Smart Dubai SSO login page instead of JSON tokens.
-- Backend app-token exchange: `POST /api/v1/user/exchange-dda-token` with `Authorization: Bearer <DDA access_token>`, JSON headers, and no body.
+Observed DDA STG provider endpoints often look like:
 
-Successful iOS and Android evidence for this repo has the same shape:
+- Authorize URL: `https://demoidp.dubai.gov.ae/mga/sps/oauth/oauth20/authorize`
+- Token URL: `https://demoidp.dubai.gov.ae/mga/sps/oauth/oauth20/token`
+- Scope: commonly `openid`
+- Registered redirect URI: app/tenant-specific HTTPS URL, often ending in `/ssoredirect`
+- Native bridge route: app-specific custom scheme or app/universal link that carries `code` and `state` back into the app
+
+Observed token-exchange behavior:
+
+- A working React Native tenant used `POST` form-encoded body with `grant_type=authorization_code`, `client_id`, `client_secret`, `redirect_uri`, and `code`.
+- In React Native, setting `credentials: "omit"` on the DDA token `fetch` prevented Android from attaching the DDA WebView/user session cookie to `/token`.
+- Do not switch client authentication to HTTP Basic just because another OAuth provider uses it. In one DDA STG tenant, switching to HTTP Basic caused a `200 text/html` response containing the Smart Dubai SSO login page instead of JSON tokens. Use the provider/backend contract for the tenant being debugged.
+- App-backend exchange is application-specific. Some apps exchange the DDA `access_token` with their backend using `Authorization: Bearer <DDA access_token>` and no body; others may require `id_token`, the full token response, or a JSON body. Confirm before coding.
+
+Successful iOS and Android evidence for a native app should have this shape:
 
 1. Authorization URL is built with `client_id`, `redirect_uri`, `scope`, `response_type=code`, and `state`.
-2. WebView reaches `https://pddfleetqa.dubai.gov.ae/ssoredirect?...&code=...&state=...`.
-3. State validates: `dda_oauth_state_validated_successfully`.
-4. DDA token request returns JSON with `tokenType: "bearer"`, `expiresIn` around `3599`, `hasIdToken: true`.
-5. Non-sensitive `id_token` claims show `iss=https://demoidp.dubai.gov.ae`, `aud=<DDA client_id>`, and `sub=<DDA user id/email>`.
-6. VRDS exchange logs `variant: "authorization-bearer-access-token"`, `sendsBearer: true`, `hasBody: false`.
-7. VRDS exchange succeeds with `hasAppToken: true`, `hasUserId: true`, then `Digital Dubai sign-in completed`.
+2. WebView/browser reaches the registered redirect URI with fresh `code` and matching `state`.
+3. State validation succeeds.
+4. DDA token request returns JSON with an access token and usually `token_type`/`expires_in`; an `id_token` may also be present.
+5. Non-sensitive `id_token` claims, when available, show expected `iss`, `aud=<DDA client_id>`, `sub=<DDA user id/email>`, and non-expired `exp`.
+6. App-backend exchange returns the app session/JWT/user payload expected by the existing auth model.
+7. The app stores the app session and completes login.
 
 ## First Pass: Discover Before Asking
 
@@ -59,7 +65,7 @@ Only ask after this scan. Ask one compact set of questions and include recommend
 - DDA provider values per environment: authorize URL, token URL, client ID, client secret handling, redirect URI, scope, and whether a userinfo endpoint is required.
 - Backend exchange contract: endpoint, method, whether to send DDA `access_token`, `id_token`, or full token response, headers/body, and expected app JWT response.
 - Native return strategy: whether the registered HTTPS redirect is bridged back to an app link/deep link, and the exact iOS/Android callback URLs.
-- UX requirements: button text, icon asset, ordering, whether it should match UAE PASS, and cancel/error copy.
+- UX requirements: button text, icon asset, ordering relative to existing providers, and cancel/error copy.
 - Sign-out requirements: app-only logout, DDA session logout endpoint, or both.
 - Verification target: web only, iOS device/simulator, Android device/emulator, QA build, production build, or Expo dev client.
 
@@ -88,8 +94,8 @@ Good first tests usually cover:
 - Authorization URL includes `client_id`, `redirect_uri`, `scope=openid`, `response_type=code`, and a persisted `state`.
 - Callback parsing accepts both the registered HTTPS redirect, commonly `/ssoredirect`, and the native return URL/app link if the app uses one.
 - State validation rejects missing, expired, or mismatched state and clears invalid state.
-- DDA token request sends `grant_type=authorization_code`, `client_id`, `client_secret`, `redirect_uri`, and `code` as `application/x-www-form-urlencoded` unless the provider docs for this integration say otherwise. For React Native, include `credentials: "omit"` and keep client authentication in the form body for this tenant.
-- Backend exchange uses the documented app contract. For VRDS-style backends, the proven contract is `POST /user/exchange-dda-token` with `Authorization: Bearer <DDA access_token>`, JSON headers, and an empty body, but confirm this in the local code/docs or with the backend owner before applying it elsewhere.
+- DDA token request sends `grant_type=authorization_code`, `redirect_uri`, and `code`; include `client_id` and `client_secret` according to the tenant's documented client-auth method. If the tenant uses form-body client auth in React Native, include `credentials: "omit"` to avoid Android cookie/session collisions.
+- Backend exchange uses the documented app contract. Confirm endpoint path, whether to send DDA `access_token`, `id_token`, or full token response, and whether the backend expects a bearer header, JSON body, or empty body.
 - UI renders "Sign in with Digital Dubai" with the Digital Dubai icon without removing existing sign-in options.
 - Logout clears pending DDA state/callback data along with the app session.
 
@@ -105,7 +111,7 @@ Follow existing app style and module boundaries:
 - On native apps, match the app's established provider UX. If the app uses an in-app WebView and DDA callbacks are not reliably returned through a system browser, load the authorize URL in a WebView and intercept both the HTTPS redirect and native bridge deep links. Do not switch to a system browser unless callback delivery is configured and tested.
 - On web apps, use the framework's normal redirect/callback route. Prefer server-side code-to-token exchange when the architecture supports it.
 - Exchange the authorization code with the DDA token endpoint, then exchange the DDA token with the app backend exactly as the contract specifies.
-- Normalize the backend response only enough to feed the existing app auth/session model. Avoid renaming DDA concepts to UAE PASS concepts except where a legacy backend response already returns such a field.
+- Normalize the backend response only enough to feed the existing app auth/session model. Avoid renaming DDA concepts to another provider's concepts except where a legacy backend response already returns such a field.
 - Add development diagnostics that prove where the failure is: authorize URL built, callback received, state valid, DDA token returned, backend exchange status. Redact secrets by default.
 - Add sign-out cleanup for DDA pending state/callbacks. Call a DDA logout endpoint only when the provider/backend docs supply one.
 
@@ -115,7 +121,7 @@ Run the focused test after each slice. Keep iterating until the current behavior
 
 Refactor only after tests pass:
 
-- Extract shared OAuth helpers only if they genuinely reduce duplication and do not blur UAE PASS/DDA differences.
+- Extract shared OAuth helpers only if they genuinely reduce duplication and do not blur DDA-specific behavior with another provider's behavior.
 - Tighten error messages so users see clear auth failure/cancel states without raw provider internals.
 - Move magic URLs and env names into config/docs.
 - Remove temporary logs, or gate sensitive diagnostics behind an explicit dev env flag.
@@ -137,8 +143,8 @@ Use logs to split the flow into stages:
 Common evidence-based responses:
 
 - `invalid_request` and "client_id was not found": inspect the actual authorize URL emitted by the app. The browser base URL alone is not enough; confirm query parameters are present and encoded.
-- `FBTOAU220E The authenticated client id ... does not match the client id in the request body`: split the problem at the token request. If callback `code` and `state` are fresh and state validates, do not rewrite callback handling. For this React Native integration, keep the DDA token request form-encoded with body `client_id` and `client_secret`, and set `credentials: "omit"` so Android does not send the SSO user-session cookie to `/token`.
-- `200` with `content-type: text/html` from the DDA token endpoint and an HTML Smart Dubai SSO page: the token endpoint did not accept the token request as JSON token exchange. In this repo, this happened after switching to HTTP Basic auth. Revert to the proven form-body `client_secret` contract.
+- `FBTOAU220E The authenticated client id ... does not match the client id in the request body`: split the problem at the token request. If callback `code` and `state` are fresh and state validates, do not rewrite callback handling. In React Native, suspect Android or WebView session cookies being sent to `/token`; try `credentials: "omit"` while preserving the tenant's documented client-auth method.
+- `200` with `content-type: text/html` from the DDA token endpoint and an HTML Smart Dubai SSO page: the token endpoint did not accept the request as a token exchange. Re-check the tenant's client-auth method before changing redirect/callback code; in one working STG tenant, HTTP Basic auth caused this and form-body `client_secret` was required.
 - `Digital Dubai IdP did not return an access token`: log status, content type, parsed keys, OAuth error fields, and a redacted text preview. If the response is HTML, treat it as a token-request shape/session issue, not a backend issue.
 - Browser/session closes with no callback: inspect redirect bridge, app links/universal links, custom schemes, and whether the user left the auth sheet. Do not change token exchange code for a callback-delivery failure.
 - DDA token succeeds but backend exchange fails: log HTTP status, backend message, and non-sensitive `id_token` claims such as issuer, audience, subject, and expiry. Then compare with backend validation rules.
